@@ -382,6 +382,75 @@ def main():
 		except Exception as e:
 			st.error(f"Room allocation failed: {e}")
 
+	# Clustering runner section
+	st.markdown("---")
+	st.header("Run clustering on a CSV and visualize the result")
+	with st.expander("Configure and run clustering"):
+		left, right = st.columns(2)
+		with left:
+			uploaded_in = st.file_uploader("Upload input CSV", type=["csv"], key="cluster_input")
+			input_name = st.text_input("...or enter input CSV filename", value="EncodedWomen_english.csv")
+		with right:
+			output_name = st.text_input("Output labeled CSV filename", value="LabeledWomen.csv")
+			n_trials = st.number_input("Optuna trials", min_value=10, max_value=1000, value=200, step=10)
+			k_mode = st.selectbox("K selection mode", ["auto", "fixed"], index=0)
+			specified_k = st.number_input("If fixed: number of clusters", min_value=2, max_value=200, value=20, step=1)
+			min_k = st.number_input("If auto: min K", min_value=2, max_value=500, value=25, step=1)
+			max_k = st.number_input("If auto: max K", min_value=3, max_value=1000, value=125, step=1)
+
+		run_btn = st.button("Run clustering", type="primary")
+
+	# Execute run and render results OUTSIDE the expander to avoid nested expanders
+	if 'run_btn_state' not in st.session_state:
+		st.session_state['run_btn_state'] = False
+	if run_btn:
+		st.session_state['run_btn_state'] = True
+
+	if st.session_state.get('run_btn_state', False):
+		try:
+			# Persist uploaded file to disk if provided
+			input_path = input_name
+			if uploaded_in is not None:
+				input_path = os.path.join(os.getcwd(), uploaded_in.name)
+				with open(input_path, "wb") as f:
+					f.write(uploaded_in.getbuffer())
+
+			from Clustering import run_clustering
+			with st.spinner("Running clustering... this may take a while"):
+				info = run_clustering(
+					input_csv=input_path,
+					output_csv=output_name,
+					n_trials=int(n_trials),
+					k_mode=k_mode,
+					specified_k=int(specified_k),
+					min_k=int(min_k),
+					max_k=int(max_k),
+				)
+			st.success("Clustering completed")
+			st.json({k: v for k, v in info.items() if k != "best_params"})
+			with st.expander("Best parameters"):
+				st.json(info.get("best_params", {}))
+
+			# Load labeled output and refresh visuals using the new file
+			labeled_df = pd.read_csv(output_name)
+			st.subheader("Labeled data preview")
+			st.dataframe(labeled_df.head(1000))
+			st.download_button(
+				label="Download labeled CSV",
+				data=labeled_df.to_csv(index=False).encode("utf-8"),
+				file_name=os.path.basename(output_name),
+				mime="text/csv",
+			)
+
+			# Offer to switch the dashboard to use the new cluster column
+			if "Cluster" in labeled_df.columns:
+				st.info("Detected 'Cluster' column in labeled output. Reload the page or upload this file via the sidebar to explore it in the dashboard sections above.")
+		except Exception as e:
+			st.error(f"Clustering run failed: {e}")
+		finally:
+			# Reset the button state so repeated runs require a click
+			st.session_state['run_btn_state'] = False
+
 	# Data preview and download
 	st.subheader("Data preview")
 	st.dataframe(filtered_df.head(1000))

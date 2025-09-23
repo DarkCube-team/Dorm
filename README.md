@@ -47,4 +47,11 @@ Your browser will open to the local URL (usually `http://localhost:8501`).
   - Histogram of room homogeneity (share of majority cluster)
   - Expandable table of assignments and a CSV download button
 
+### Run clustering from the app
+
+- Open the "Run clustering on a CSV and visualize the result" section.
+- Upload a CSV or type the input filename, set output filename, Optuna trials, and K settings.
+- Click "Run clustering". The app writes a labeled CSV (adds `Cluster` column), previews it, and lets you download it.
+- To explore the labeled output in the main dashboard sections, either reload the app and select the new file in the sidebar uploader, or place the output CSV in the project folder and pick it via the sidebar.
+
 
