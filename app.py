@@ -116,12 +116,21 @@ def sidebar_controls(df: pd.DataFrame) -> dict:
 		help="Choose numeric features used for PCA/t-SNE",
 	)
 
+	# Option: treat numeric columns as categorical in visuals
+	cat_override = st.sidebar.multiselect(
+		"Treat numeric columns as categorical",
+		options=df.select_dtypes(include=[np.number]).columns.tolist(),
+		default=[],
+		help="Selected numeric columns will be visualized as categories (cast to string)",
+	)
+
 	return {
 		"cluster_col": cluster_col,
 		"cluster_filter": cluster_filter,
 		"projection_method": projection_method,
 		"selected_features": selected_features,
 		"search_text": search_text,
+		"cat_override": cat_override,
 	}
 
 
@@ -222,10 +231,13 @@ def allocate_rooms(
 	return work
 
 
-def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacity: int):
+def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacity: int, cat_override: List[str]):
 	st.subheader("Dorm rooms composition")
 	# Stacked bar of cluster counts per room
-	counts = assigned.groupby(["room_id", cluster_col]).size().reset_index(name="count")
+	data = assigned.copy()
+	if cluster_col in (cat_override or []):
+		data[cluster_col] = data[cluster_col].astype(str)
+	counts = data.groupby(["room_id", cluster_col]).size().reset_index(name="count")
 	fig = px.bar(
 		counts,
 		x="room_id",
@@ -238,26 +250,50 @@ def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacit
 
 	# Homogeneity metric per room: share of majority cluster
 	room_stats = (
-		assigned.groupby(["room_id", cluster_col]).size().reset_index(name="count")
+		data.groupby(["room_id", cluster_col]).size().reset_index(name="count")
 		.sort_values(["room_id", "count"], ascending=[True, False])
 	)
 	majority = room_stats.groupby("room_id").agg({"count": "max"}).rename(columns={"count": "majority_count"})
-	sizes = assigned.groupby("room_id").size().rename("room_size")
+	sizes = data.groupby("room_id").size().rename("room_size")
 	merged = majority.join(sizes, how="inner")
 	merged["homogeneity"] = (merged["majority_count"] / merged["room_size"]).astype(float)
 	fig2 = px.histogram(merged.reset_index(), x="homogeneity", nbins=capacity + 2, title="Room homogeneity distribution (1.0 = all same cluster)")
 	st.plotly_chart(fig2, use_container_width=True)
 
 	with st.expander("Room assignments (table)"):
-		st.dataframe(assigned[["room_id", "bed", "student_id", cluster_col]].sort_values(["room_id", "bed"]))
+		st.dataframe(data[["room_id", "bed", "student_id", cluster_col]].sort_values(["room_id", "bed"]))
 
 	# Download
 	st.download_button(
 		label="Download room assignments CSV",
-		data=assigned[["room_id", "bed", "student_id", cluster_col]].to_csv(index=False).encode("utf-8"),
+		data=data[["room_id", "bed", "student_id", cluster_col]].to_csv(index=False).encode("utf-8"),
 		file_name="room_assignments.csv",
 		mime="text/csv",
 	)
+
+	# Search utilities
+	st.subheader("Find rooms and students")
+	room_ids = data["room_id"].unique().tolist()
+	col_r, col_s = st.columns(2)
+	with col_r:
+		selected_room = st.selectbox("Search by room", options=["<select>"] + sorted(room_ids))
+		if selected_room != "<select>":
+			room_view = data[data["room_id"] == selected_room].sort_values(["bed"])
+			st.markdown(f"Room {selected_room} — {len(room_view)}/{capacity} students")
+			st.dataframe(room_view[["room_id", "bed", "student_id", cluster_col]])
+	with col_s:
+		student_query = st.text_input("Search student (matches any column)")
+		if student_query:
+			pat = student_query.strip().lower()
+			mask = pd.Series(False, index=data.index)
+			for c in data.columns:
+				mask = mask | data[c].astype(str).str.lower().str.contains(pat, na=False)
+			found = data[mask].sort_values(["room_id", "bed"]) 
+			if found.empty:
+				st.info("No matching student found.")
+			else:
+				st.markdown(f"Found {len(found)} matching row(s) in {found['room_id'].nunique()} room(s)")
+				st.dataframe(found[["room_id", "bed", "student_id", cluster_col]])
 
 
 def apply_filters(df: pd.DataFrame, cluster_col: Optional[str], cluster_filter, search_text: str) -> pd.DataFrame:
@@ -274,18 +310,21 @@ def apply_filters(df: pd.DataFrame, cluster_col: Optional[str], cluster_filter, 
 	return filtered
 
 
-def render_cluster_overview(df: pd.DataFrame, cluster_col: Optional[str]):
+def render_cluster_overview(df: pd.DataFrame, cluster_col: Optional[str], cat_override: List[str]):
 	st.subheader("Cluster overview")
 	if cluster_col is None:
 		st.info("Select a cluster label column in the sidebar to see cluster sizes.")
 		return
-	counts = df[cluster_col].value_counts(dropna=False).reset_index()
+	data = df.copy()
+	if cluster_col in (cat_override or []):
+		data[cluster_col] = data[cluster_col].astype(str)
+	counts = data[cluster_col].value_counts(dropna=False).reset_index()
 	counts.columns = [cluster_col, "count"]
 	fig = px.bar(counts, x=cluster_col, y="count", color=cluster_col, title="Cluster sizes")
 	st.plotly_chart(fig, use_container_width=True)
 
 
-def render_projection(df: pd.DataFrame, cluster_col: Optional[str], method: str, feature_cols: List[str]):
+def render_projection(df: pd.DataFrame, cluster_col: Optional[str], method: str, feature_cols: List[str], cat_override: List[str]):
 	st.subheader("2D projection")
 	if len(feature_cols) < 2:
 		st.warning("Select at least 2 numeric features for projection.")
@@ -293,6 +332,8 @@ def render_projection(df: pd.DataFrame, cluster_col: Optional[str], method: str,
 	try:
 		x, y = compute_projection(df, feature_cols, method)
 		viz_df = df.copy()
+		if cluster_col is not None and cluster_col in (cat_override or []):
+			viz_df[cluster_col] = viz_df[cluster_col].astype(str)
 		viz_df["x"] = x
 		viz_df["y"] = y
 		color = cluster_col if cluster_col is not None else None
@@ -310,7 +351,7 @@ def render_projection(df: pd.DataFrame, cluster_col: Optional[str], method: str,
 		st.error(f"Projection failed: {e}")
 
 
-def render_feature_stats(df: pd.DataFrame, cluster_col: Optional[str]):
+def render_feature_stats(df: pd.DataFrame, cluster_col: Optional[str], cat_override: List[str]):
 	st.subheader("Feature statistics")
 	numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 	if not numeric_cols:
@@ -318,7 +359,10 @@ def render_feature_stats(df: pd.DataFrame, cluster_col: Optional[str]):
 		return
 	by_cluster = st.checkbox("Show by cluster", value=cluster_col is not None)
 	if by_cluster and cluster_col is not None:
-		desc = df.groupby(cluster_col)[numeric_cols].describe().transpose()
+		data = df.copy()
+		if cluster_col in (cat_override or []):
+			data[cluster_col] = data[cluster_col].astype(str)
+		desc = data.groupby(cluster_col)[numeric_cols].describe().transpose()
 		st.dataframe(desc)
 	else:
 		st.dataframe(df[numeric_cols].describe().transpose())
@@ -351,14 +395,15 @@ def main():
 		st.metric("Features (numeric)", f"{len(select_features_for_projection(df, controls['cluster_col']))}")
 
 	# Visuals
-	render_cluster_overview(filtered_df, controls["cluster_col"]) 
+	render_cluster_overview(filtered_df, controls["cluster_col"], controls["cat_override"]) 
 	render_projection(
 		filtered_df,
 		controls["cluster_col"],
 		controls["projection_method"],
 		controls["selected_features"],
+		controls["cat_override"],
 	)
-	render_feature_stats(filtered_df, controls["cluster_col"])
+	render_feature_stats(filtered_df, controls["cluster_col"], controls["cat_override"])
 
 	# Room allocation section
 	st.markdown("---")
@@ -378,7 +423,7 @@ def main():
 			st.caption(
 				f"Assigned {len(assigned)} students to {(len(assigned) + room_controls['capacity'] - 1) // room_controls['capacity']} rooms (capacity {room_controls['capacity']})."
 			)
-			render_room_visualizations(assigned, controls["cluster_col"], room_controls["capacity"])
+			render_room_visualizations(assigned, controls["cluster_col"], room_controls["capacity"], controls["cat_override"]) 
 		except Exception as e:
 			st.error(f"Room allocation failed: {e}")
 
