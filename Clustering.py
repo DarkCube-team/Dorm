@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 
 def run_clustering(
 	input_csv: str,
-	output_csv: str = "LabeledWomen.csv",
+	output_csv: str = "MOCK_DATA-Women.csv",
 	n_trials: int = 200,
 	k_mode: str = "auto",
 	specified_k: int = 20,
@@ -103,9 +103,9 @@ def run_clustering(
 		result["silhouette"] = float(silhouette_score(X_proc, labels))
 
 	# Save labeled output
-	df_out = df.copy()
+	df_out = pd.read_csv(output_csv)
 	df_out["Cluster"] = labels
-	df_out.to_csv(output_csv, index=False)
+	df_out.to_csv(f"{output_csv}_labeled.csv", index=False)
 	return result
 
 
