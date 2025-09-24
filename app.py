@@ -273,6 +273,24 @@ def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacit
 
 	# Search utilities
 	st.subheader("Find rooms and students")
+	# Column visibility toggle
+	available_cols = list(data.columns)
+	# Move key columns first if present
+	preferred_order = ["room_id", "bed", "student_id", cluster_col]
+	ordered_cols = []
+	for c in preferred_order:
+		if c in available_cols and c not in ordered_cols:
+			ordered_cols.append(c)
+	for c in available_cols:
+		if c not in ordered_cols:
+			ordered_cols.append(c)
+	default_visible = ordered_cols  # show all by default
+	visible_cols = st.multiselect(
+		"Columns to display",
+		options=ordered_cols,
+		default=default_visible,
+		help="Toggle which student fields appear in room and search tables",
+	)
 	room_ids = data["room_id"].unique().tolist()
 	col_r, col_s = st.columns(2)
 	with col_r:
@@ -280,7 +298,7 @@ def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacit
 		if selected_room != "<select>":
 			room_view = data[data["room_id"] == selected_room].sort_values(["bed"])
 			st.markdown(f"Room {selected_room} — {len(room_view)}/{capacity} students")
-			st.dataframe(room_view[["room_id", "bed", "student_id", cluster_col]])
+			st.dataframe(room_view[visible_cols])
 	with col_s:
 		student_query = st.text_input("Search student (matches any column)")
 		if student_query:
@@ -293,7 +311,7 @@ def render_room_visualizations(assigned: pd.DataFrame, cluster_col: str, capacit
 				st.info("No matching student found.")
 			else:
 				st.markdown(f"Found {len(found)} matching row(s) in {found['room_id'].nunique()} room(s)")
-				st.dataframe(found[["room_id", "bed", "student_id", cluster_col]])
+				st.dataframe(found[visible_cols])
 
 
 def apply_filters(df: pd.DataFrame, cluster_col: Optional[str], cluster_filter, search_text: str) -> pd.DataFrame:
