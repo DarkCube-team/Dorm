@@ -30,6 +30,22 @@ A comprehensive Streamlit application for university administrators to analyze s
 - **Flexible Configuration**: Auto or fixed cluster count selection
 - **Performance Metrics**: Silhouette score, Calinski-Harabasz, Davies-Bouldin
 
+## Demo
+Here is an example of the app in action:
+
+**Dashboard Preview:**
+
+![Dashboard Example](docs/images/Overview.png)
+
+**Clustering Visualization:**
+
+![Cluster Plot](docs/images/Clustering.png)
+
+**Final Room Allocation Table:**
+
+![Room Allocation](docs/images/Allocation.png)
+
+
 ##  Requirements
 
 - Python 3.9–3.12
