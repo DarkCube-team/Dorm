@@ -30,6 +30,22 @@ A comprehensive Streamlit application for university administrators to analyze s
 - **Flexible Configuration**: Auto or fixed cluster count selection
 - **Performance Metrics**: Silhouette score, Calinski-Harabasz, Davies-Bouldin
 
+## Demo
+Here is an example of the app in action:
+
+**Dashboard Preview:**
+
+![Dashboard Example](Docs/Images/Overview.png)
+
+**Clustering Visualization:**
+
+![Cluster Plot](Docs/Images/Clustering.png)
+
+**Final Room Allocation Table:**
+
+![Room Allocation](Docs/Images/Allocation.png)
+
+
 ##  Requirements
 
 - Python 3.9–3.12
@@ -82,18 +98,6 @@ pip install -r requirements.txt
 4. Execute clustering and download labeled results
 5. Use labeled output in main dashboard sections
 
-## 🏗️ Project Structure
-
-```
-Khu-Dorm/
-├── app.py                 # Main Streamlit application
-├── Clustering.py          # Clustering algorithms and optimization
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-├── .gitignore            # Git ignore rules
-└── EncodedWomen_english.csv  # Sample dataset (optional)
-```
-
 ##  Configuration Options
 
 ### Clustering Parameters
@@ -141,24 +145,11 @@ Khu-Dorm/
 
 ##  Contributing
 
-We welcome contributions! Please see our contributing guidelines:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions , if you are interested in improving the performance or have any ideas feel free to contact us or open an issue!
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-##  Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Contact the development team
-- Check the documentation wiki
 
 ##  Performance Notes
 
