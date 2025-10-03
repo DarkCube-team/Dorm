@@ -35,15 +35,15 @@ Here is an example of the app in action:
 
 **Dashboard Preview:**
 
-![Dashboard Example](docs/images/Overview.png)
+![Dashboard Example](Docs/images/Overview.png)
 
 **Clustering Visualization:**
 
-![Cluster Plot](docs/images/Clustering.png)
+![Cluster Plot](Docs/images/Clustering.png)
 
 **Final Room Allocation Table:**
 
-![Room Allocation](docs/images/Allocation.png)
+![Room Allocation](Docs/images/Allocation.png)
 
 
 ##  Requirements
